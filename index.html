@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Financial Fraud Detection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            text-align: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            max-width: 500px;
+            margin: auto;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h2 {
+            color: #333;
+        }
+        input, button {
+            margin: 10px 0;
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            border-radius: 5px;
+            background-color: #e9ecef;
+            display: none;
+        }
+        video {
+            width: 100%;
+            display: none;
+            transform: scaleX(-1); /* ✅ Mirror fix */
+        }
+        canvas {
+            display: none;
+        }
+        #textInput {
+            height: 100px;
+            resize: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Financial Fraud Detection</h2>
+
+        <!-- 📂 File Upload -->
+        <h3>Upload a Document</h3>
+        <input type="file" id="fileInput">
+
+        <!-- 📸 Camera Capture -->
+        <h3>Capture a Photo</h3>
+        <button id="startCamera">Open Camera</button>
+        <video id="video" autoplay></video>
+        <button id="capturePhoto" style="display:none;">Capture Photo</button>
+        <canvas id="canvas"></canvas>
+
+        <!-- ⌨️ Manual Typing -->
+        <h3>Or Enter Text</h3>
+        <textarea id="textInput" placeholder="Type or paste financial text here..."></textarea>
+
+        <!-- 🔍 Analyze Button -->
+        <button id="analyzeButton">Analyze</button>
+
+        <!-- 📊 Results -->
+        <div class="result" id="resultBox">
+            <h3>Analysis Result</h3>
+            <p><strong>Extracted Text:</strong></p>
+            <p id="extractedText"></p>
+            <p><strong>Fraud Prediction:</strong></p>
+            <p id="fraudPrediction"></p>
+        </div>
+    </div>
+
+    <script>
+        let video = document.getElementById("video");
+        let canvas = document.getElementById("canvas");
+        let startCameraBtn = document.getElementById("startCamera");
+        let capturePhotoBtn = document.getElementById("capturePhoto");
+        let analyzeButton = document.getElementById("analyzeButton");
+
+        // 🎥 Open Camera
+        startCameraBtn.addEventListener("click", async function () {
+            let stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            video.srcObject = stream;
+            video.style.display = "block";
+            capturePhotoBtn.style.display = "block";
+        });
+
+        // 📸 Capture Photo & Fix Mirroring
+        capturePhotoBtn.addEventListener("click", function () {
+            let context = canvas.getContext("2d");
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // ✅ Flip canvas horizontally to correct mirroring
+            context.translate(canvas.width, 0);
+            context.scale(-1, 1);
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            video.style.display = "none";
+            capturePhotoBtn.style.display = "none";
+            processCapturedImage();
+        });
+
+        // 📤 Upload File, Capture Image, or Type Text
+        analyzeButton.addEventListener("click", async function () {
+            let fileInput = document.getElementById("fileInput").files[0];
+            let textInput = document.getElementById("textInput").value.trim();
+
+            let formData = new FormData();
+            if (fileInput) {
+                formData.append("file", fileInput);
+            } else if (textInput) {
+                formData.append("text", textInput);
+            } else if (canvas.toDataURL()) {
+                let blob = await fetch(canvas.toDataURL()).then(res => res.blob());
+                formData.append("file", blob, "captured_image.png");
+            } else {
+                alert("Please upload a file, take a photo, or enter text!");
+                return;
+            }
+
+            // 🔍 Fetch Analysis Result
+            try {
+                let response = await fetch("/analyze", {
+                    method: "POST",
+                    body: formData
+                });
+                let data = await response.json();
+
+                if (data.error) {
+                    alert("Error: " + data.error);
+                } else {
+                    document.getElementById("extractedText").innerText = data.text || "No text extracted";
+                    document.getElementById("fraudPrediction").innerText = data.fraud_prediction || "No prediction";
+                    document.getElementById("resultBox").style.display = "block";
+                }
+            } catch (error) {
+                alert("An error occurred while analyzing.");
+            }
+        });
+
+        // 📸 Convert Captured Image to Form Data
+        function processCapturedImage() {
+            let imageDataUrl = canvas.toDataURL("image/png");
+            let img = new Image();
+            img.src = imageDataUrl;
+            img.style.maxWidth = "100%";
+            document.body.appendChild(img);
+        }
+    </script>
+
+</body>
+</html>
